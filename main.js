@@ -1,4 +1,4 @@
-/* ---------- FIREBASE INIT ---------- */
+/* ========== FIREBASE INIT ========== */
 firebase.initializeApp({
   apiKey: "AIzaSyAI5nA49KkR5VsPn3QpjWOdM0lv2nEQu3U",
   authDomain: "private-chat-app-2986d.firebaseapp.com",
@@ -6,7 +6,7 @@ firebase.initializeApp({
 });
 var db = firebase.firestore();
 
-/* ---------- USER ---------- */
+/* ========== USER ========== */
 function genCode() {
   return "USR-" + Math.random().toString(36).substr(2,6).toUpperCase();
 }
@@ -23,59 +23,58 @@ if (!username) {
   localStorage.setItem("username", username);
 }
 
-/* ---------- DOM ---------- */
+/* ========== DOM ========== */
 var usernameEl = document.getElementById("username");
-var myCodeEl   = document.getElementById("myCode");
+var myCodeEl = document.getElementById("myCode");
 var chatListEl = document.getElementById("chatList");
-var chatBoxEl  = document.getElementById("chatBox");
+var chatBoxEl = document.getElementById("chatBox");
 var chatUserEl = document.getElementById("chatUser");
 var msgInputEl = document.getElementById("msgInput");
 
-/* ---------- GLOBAL CHAT STATE ---------- */
+/* ========== GLOBAL ========== */
 var chatId = null;
 var otherUser = null;
 
-/* ---------- HOME PAGE ---------- */
+/* ========== HOME PAGE ========== */
 if (usernameEl && myCodeEl && chatListEl) {
   usernameEl.innerText = username;
   myCodeEl.innerText = myCode;
 
-  // 🔴 FIX: no orderBy (prevents empty snapshot)
-  db.collection("users")
-    .doc(myCode)
-    .collection("chats")
+  db.collection("chats")
+    .where("users", "array-contains", myCode)
+    .orderBy("time", "desc")
     .onSnapshot(snap => {
       chatListEl.innerHTML = "";
 
-      snap.forEach(d => {
-        var data = d.data() || {};
-        var other = d.id.replace(myCode,"").replace("__","");
+      snap.forEach(doc => {
+        var data = doc.data();
+        var other = data.users.find(u => u !== myCode);
 
         var card = document.createElement("div");
         card.className = "chat-card";
-        card.innerHTML = `
-          <b>${other}</b>
-          <p>${data.last || ""}</p>
-        `;
-
+        card.innerHTML = `<b>${other}</b><p>${data.last || ""}</p>`;
         card.onclick = () => {
-          location.href = "chat.html?c=" + d.id;
+          location.href = "chat.html?c=" + doc.id;
         };
-
-        // long press delete (list only)
-        let t;
-        card.addEventListener("touchstart",()=>{
-          t=setTimeout(()=>{
-            if(confirm("Delete chat from list?")){
-              d.ref.delete();
-            }
-          },600);
-        });
-        card.addEventListener("touchend",()=>clearTimeout(t));
 
         chatListEl.appendChild(card);
       });
     });
+}
+
+function newChat() {
+  var other = prompt("Enter user code");
+  if (!other) return;
+
+  var id = [myCode, other].sort().join("__");
+
+  db.collection("chats").doc(id).set({
+    users: [myCode, other],
+    last: "",
+    time: Date.now()
+  });
+
+  location.href = "chat.html?c=" + id;
 }
 
 function changeUsername() {
@@ -86,37 +85,19 @@ function changeUsername() {
   }
 }
 
-function newChat() {
-  var other = prompt("Enter user code");
-  if (!other) return;
-
-  var id = [myCode, other].sort().join("__");
-
-  db.collection("users").doc(myCode)
-    .collection("chats").doc(id)
-    .set({ last:"", time:Date.now() });
-
-  db.collection("users").doc(other)
-    .collection("chats").doc(id)
-    .set({ last:"", time:Date.now() });
-
-  location.href = "chat.html?c=" + id;
-}
-
-/* ---------- CHAT PAGE ---------- */
+/* ========== CHAT PAGE ========== */
 if (chatBoxEl && chatUserEl) {
   var params = new URLSearchParams(location.search);
   chatId = params.get("c");
+  if (!chatId) location.href = "index.html";
 
-  if (!chatId) {
-    location.href = "index.html";
-  }
+  db.collection("chats").doc(chatId).get().then(doc => {
+    if (!doc.exists) return;
+    otherUser = doc.data().users.find(u => u !== myCode);
+    chatUserEl.innerText = otherUser;
+  });
 
-  otherUser = chatId.replace(myCode,"").replace("__","");
-  chatUserEl.innerText = otherUser;
-
-  db.collection("chats")
-    .doc(chatId)
+  db.collection("chats").doc(chatId)
     .collection("messages")
     .orderBy("time")
     .onSnapshot(snap => {
@@ -127,18 +108,6 @@ if (chatBoxEl && chatUserEl) {
         var div = document.createElement("div");
         div.className = "msg " + (m.from === myCode ? "me" : "them");
         div.innerText = m.text;
-
-        // long press delete for everyone
-        let t;
-        div.addEventListener("touchstart",()=>{
-          t=setTimeout(()=>{
-            if(confirm("Delete for everyone?")){
-              d.ref.delete();
-            }
-          },600);
-        });
-        div.addEventListener("touchend",()=>clearTimeout(t));
-
         chatBoxEl.appendChild(div);
       });
 
@@ -149,8 +118,7 @@ if (chatBoxEl && chatUserEl) {
 function sendMsg() {
   if (!chatId || !msgInputEl.value) return;
 
-  db.collection("chats")
-    .doc(chatId)
+  db.collection("chats").doc(chatId)
     .collection("messages")
     .add({
       from: myCode,
@@ -159,14 +127,10 @@ function sendMsg() {
       time: Date.now()
     });
 
-  // update last message (both sides)
-  db.collection("users").doc(myCode)
-    .collection("chats").doc(chatId)
-    .set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
-
-  db.collection("users").doc(otherUser)
-    .collection("chats").doc(chatId)
-    .set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
+  db.collection("chats").doc(chatId).set({
+    last: msgInputEl.value,
+    time: Date.now()
+  }, { merge: true });
 
   msgInputEl.value = "";
 }
@@ -175,7 +139,7 @@ function goHome() {
   location.href = "index.html";
 }
 
-/* ---------- PWA ---------- */
+/* ========== PWA ========== */
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
 }
