@@ -1,4 +1,4 @@
-/* ========== FIREBASE INIT ========== */
+/* ---------- FIREBASE ---------- */
 firebase.initializeApp({
   apiKey: "AIzaSyAI5nA49KkR5VsPn3QpjWOdM0lv2nEQu3U",
   authDomain: "private-chat-app-2986d.firebaseapp.com",
@@ -6,40 +6,26 @@ firebase.initializeApp({
 });
 var db = firebase.firestore();
 
-/* ========== USER ========== */
-function genCode() {
-  return "USR-" + Math.random().toString(36).substr(2,6).toUpperCase();
-}
-
+/* ---------- SIMPLE USER ID (TEMP) ---------- */
 var myCode = localStorage.getItem("myCode");
 if (!myCode) {
-  myCode = genCode();
+  myCode = "U-" + Math.random().toString(36).substr(2,5);
   localStorage.setItem("myCode", myCode);
 }
 
-var username = localStorage.getItem("username");
-if (!username) {
-  username = prompt("Enter username") || "User";
-  localStorage.setItem("username", username);
-}
-
-/* ========== DOM ========== */
-var usernameEl = document.getElementById("username");
-var myCodeEl = document.getElementById("myCode");
+/* ---------- DOM ---------- */
 var chatListEl = document.getElementById("chatList");
-var chatBoxEl = document.getElementById("chatBox");
+var chatBoxEl  = document.getElementById("chatBox");
 var chatUserEl = document.getElementById("chatUser");
 var msgInputEl = document.getElementById("msgInput");
 
-/* ========== GLOBAL ========== */
+/* ---------- GLOBAL ---------- */
 var chatId = null;
-var otherUser = null;
 
-/* ========== HOME PAGE ========== */
-if (usernameEl && myCodeEl && chatListEl) {
-  usernameEl.innerText = username;
-  myCodeEl.innerText = myCode;
+/* ================= HOME PAGE ================= */
+if (chatListEl) {
 
+  // 🔥 REALTIME CHAT LIST
   db.collection("chats")
     .where("users", "array-contains", myCode)
     .orderBy("time", "desc")
@@ -50,20 +36,22 @@ if (usernameEl && myCodeEl && chatListEl) {
         var data = doc.data();
         var other = data.users.find(u => u !== myCode);
 
-        var card = document.createElement("div");
-        card.className = "chat-card";
-        card.innerHTML = `<b>${other}</b><p>${data.last || ""}</p>`;
-        card.onclick = () => {
+        var div = document.createElement("div");
+        div.className = "chat-card";
+        div.innerHTML = `<b>${other}</b><p>${data.last || ""}</p>`;
+
+        div.onclick = () => {
           location.href = "chat.html?c=" + doc.id;
         };
 
-        chatListEl.appendChild(card);
+        chatListEl.appendChild(div);
       });
     });
 }
 
+/* ---------- START NEW CHAT ---------- */
 function newChat() {
-  var other = prompt("Enter user code");
+  var other = prompt("Enter any code");
   if (!other) return;
 
   var id = [myCode, other].sort().join("__");
@@ -77,27 +65,19 @@ function newChat() {
   location.href = "chat.html?c=" + id;
 }
 
-function changeUsername() {
-  var n = prompt("New username");
-  if (n) {
-    localStorage.setItem("username", n);
-    location.reload();
-  }
-}
-
-/* ========== CHAT PAGE ========== */
+/* ================= CHAT PAGE ================= */
 if (chatBoxEl && chatUserEl) {
+
   var params = new URLSearchParams(location.search);
   chatId = params.get("c");
   if (!chatId) location.href = "index.html";
 
-  db.collection("chats").doc(chatId).get().then(doc => {
-    if (!doc.exists) return;
-    otherUser = doc.data().users.find(u => u !== myCode);
-    chatUserEl.innerText = otherUser;
-  });
+  var parts = chatId.split("__");
+  chatUserEl.innerText = parts[0] === myCode ? parts[1] : parts[0];
 
-  db.collection("chats").doc(chatId)
+  // 🔥 REALTIME MESSAGES
+  db.collection("chats")
+    .doc(chatId)
     .collection("messages")
     .orderBy("time")
     .onSnapshot(snap => {
@@ -115,31 +95,29 @@ if (chatBoxEl && chatUserEl) {
     });
 }
 
+/* ---------- SEND MESSAGE ---------- */
 function sendMsg() {
   if (!chatId || !msgInputEl.value) return;
 
-  db.collection("chats").doc(chatId)
+  db.collection("chats")
+    .doc(chatId)
     .collection("messages")
     .add({
       from: myCode,
-      user: username,
       text: msgInputEl.value,
       time: Date.now()
     });
 
-  db.collection("chats").doc(chatId).set({
-    last: msgInputEl.value,
-    time: Date.now()
-  }, { merge: true });
+  db.collection("chats")
+    .doc(chatId)
+    .set({
+      last: msgInputEl.value,
+      time: Date.now()
+    }, { merge: true });
 
   msgInputEl.value = "";
 }
 
 function goHome() {
   location.href = "index.html";
-}
-
-/* ========== PWA ========== */
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
 }
