@@ -6,7 +6,7 @@ firebase.initializeApp({
 });
 var db = firebase.firestore();
 
-/* ---------- USER (PER DEVICE) ---------- */
+/* ---------- USER ---------- */
 function genCode() {
   return "USR-" + Math.random().toString(36).substr(2,6).toUpperCase();
 }
@@ -23,11 +23,11 @@ if (!username) {
   localStorage.setItem("username", username);
 }
 
-/* ---------- DOM SAFE REFERENCES ---------- */
+/* ---------- DOM ---------- */
 var usernameEl = document.getElementById("username");
-var myCodeEl = document.getElementById("myCode");
+var myCodeEl   = document.getElementById("myCode");
 var chatListEl = document.getElementById("chatList");
-var chatBoxEl = document.getElementById("chatBox");
+var chatBoxEl  = document.getElementById("chatBox");
 var chatUserEl = document.getElementById("chatUser");
 var msgInputEl = document.getElementById("msgInput");
 
@@ -40,17 +40,24 @@ if (usernameEl && myCodeEl && chatListEl) {
   usernameEl.innerText = username;
   myCodeEl.innerText = myCode;
 
-  db.collection("users").doc(myCode).collection("chats")
-    .orderBy("time", "desc")
+  // 🔴 FIX: no orderBy (prevents empty snapshot)
+  db.collection("users")
+    .doc(myCode)
+    .collection("chats")
     .onSnapshot(snap => {
       chatListEl.innerHTML = "";
+
       snap.forEach(d => {
         var data = d.data() || {};
         var other = d.id.replace(myCode,"").replace("__","");
 
         var card = document.createElement("div");
         card.className = "chat-card";
-        card.innerHTML = `<b>${other}</b><p>${data.last || ""}</p>`;
+        card.innerHTML = `
+          <b>${other}</b>
+          <p>${data.last || ""}</p>
+        `;
+
         card.onclick = () => {
           location.href = "chat.html?c=" + d.id;
         };
@@ -85,11 +92,13 @@ function newChat() {
 
   var id = [myCode, other].sort().join("__");
 
-  db.collection("users").doc(myCode).collection("chats")
-    .doc(id).set({ last:"", time:Date.now() });
+  db.collection("users").doc(myCode)
+    .collection("chats").doc(id)
+    .set({ last:"", time:Date.now() });
 
-  db.collection("users").doc(other).collection("chats")
-    .doc(id).set({ last:"", time:Date.now() });
+  db.collection("users").doc(other)
+    .collection("chats").doc(id)
+    .set({ last:"", time:Date.now() });
 
   location.href = "chat.html?c=" + id;
 }
@@ -98,15 +107,21 @@ function newChat() {
 if (chatBoxEl && chatUserEl) {
   var params = new URLSearchParams(location.search);
   chatId = params.get("c");
-  if (!chatId) location.href = "index.html";
+
+  if (!chatId) {
+    location.href = "index.html";
+  }
 
   otherUser = chatId.replace(myCode,"").replace("__","");
   chatUserEl.innerText = otherUser;
 
-  db.collection("chats").doc(chatId).collection("messages")
+  db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
     .orderBy("time")
     .onSnapshot(snap => {
       chatBoxEl.innerHTML = "";
+
       snap.forEach(d => {
         var m = d.data();
         var div = document.createElement("div");
@@ -126,6 +141,7 @@ if (chatBoxEl && chatUserEl) {
 
         chatBoxEl.appendChild(div);
       });
+
       chatBoxEl.scrollTop = chatBoxEl.scrollHeight;
     });
 }
@@ -133,18 +149,24 @@ if (chatBoxEl && chatUserEl) {
 function sendMsg() {
   if (!chatId || !msgInputEl.value) return;
 
-  db.collection("chats").doc(chatId).collection("messages").add({
-    from: myCode,
-    user: username,
-    text: msgInputEl.value,
-    time: Date.now()
-  });
+  db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
+    .add({
+      from: myCode,
+      user: username,
+      text: msgInputEl.value,
+      time: Date.now()
+    });
 
-  db.collection("users").doc(myCode).collection("chats")
-    .doc(chatId).set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
+  // update last message (both sides)
+  db.collection("users").doc(myCode)
+    .collection("chats").doc(chatId)
+    .set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
 
-  db.collection("users").doc(otherUser).collection("chats")
-    .doc(chatId).set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
+  db.collection("users").doc(otherUser)
+    .collection("chats").doc(chatId)
+    .set({ last: msgInputEl.value, time:Date.now() }, { merge:true });
 
   msgInputEl.value = "";
 }
