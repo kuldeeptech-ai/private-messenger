@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#22c55e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+
+<body>
+<div class="app">
+
+  <header>
+    <div class="header-left">
+      <h3 id="chatUser"></h3>
+      <small>Chat</small>
+    </div>
+    <div class="header-actions">
+      <button onclick="goHome()">Back</button>
+    </div>
+  </header>
+
+  <div class="chat-box" id="chatBox"></div>
+
+  <div class="send-bar">
+    <input id="msgInput" placeholder="Message">
+    <button onclick="sendMsg()">Send</button>
+  </div>
+
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Private Messenger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#22c55e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+
+<body>
+<div class="app">
+
+  <header>
+    <div class="header-left">
+      <h3 id="username"></h3>
+      <small id="myCode"></small>
+    </div>
+    <div class="header-actions">
+      <button onclick="changeUsername()">Change</button>
+    </div>
+  </header>
+
+  <div class="home-actions">
+    <button onclick="newChat()">New Chat</button>
+  </div>
+
+  <div class="chat-list" id="chatList"></div>
+
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
